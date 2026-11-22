@@ -2,14 +2,23 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    rust-overlay.url = "github:oxalica/rust-overlay";
   };
   outputs =
-    { flake-utils, nixpkgs, ... }:
+    {
+      flake-utils,
+      nixpkgs,
+      rust-overlay,
+      ...
+    }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
         inherit (nixpkgs) lib;
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ rust-overlay.overlays.default ];
+        };
       in
       {
         devShells.default = pkgs.mkShell rec {
@@ -18,20 +27,23 @@
             builtins.attrValues {
               inherit (pkgs)
                 alsa-lib
-                cargo
+                clang
                 libx11
                 libxcursor
                 libxi
                 libxkbcommon
                 libxrandr
+                mold
                 pkg-config
-                rustc
                 udev
                 vulkan-loader
                 wayland
                 ;
             }
-            ++ [ pkgs.rustPlatform.bindgenHook ];
+            ++ [
+              pkgs.rustPlatform.bindgenHook
+              (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
+            ];
           LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
         };
       }
